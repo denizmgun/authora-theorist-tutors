@@ -1,4 +1,4 @@
-from autora.theorist.authora_theorist_tutors import ExampleRegressor
+from autora.theorist.autora_theorist_tutors import ExampleRegressor
 
 def test():
     theorist = ExampleRegressor()

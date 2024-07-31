@@ -1,6 +1,7 @@
 from sklearn.preprocessing import PolynomialFeatures
 from sklearn.linear_model import LinearRegression
 import matplotlib.pyplot as plt
+import sympy as sp
 
 # autora state
 from autora.state import StandardState, on_state, Delta
@@ -15,7 +16,7 @@ from autora.experimentalist.grid import grid_pool
 from autora.experimentalist.random import random_pool, random_sample
 
 # bayesian theorist
-import autora.theorist.bms
+#import autora.theorist.bms
 from autora.theorist.bms.regressor import BMSRegressor
 
 
@@ -25,9 +26,11 @@ from sklearn.model_selection import train_test_split
 
 def benchmark(experiment_runner, theorist):
 
+    temperatures = [1.0] + [1.04**k for k in range(1, 20)]
+
     # Give the dummy and bms theorists
     dummy_theorist = DummyTheorist()
-    #bms_theorist = BMSRegressor() #autora.theorist.bms()
+    bms_theorist = BMSRegressor(epochs=500, ts=temperatures) #autora.theorist.bms()
 
     # generate all conditions
     conditions = experiment_runner.domain()
@@ -64,10 +67,10 @@ def benchmark(experiment_runner, theorist):
     predictions_dummy_theorist = dummy_theorist.predict(conditions_test)
 
     # fit BMS theorist
-    #bms_theorist.fit(conditions_train, observations_train)
+    bms_theorist.fit(conditions_train, observations_train)
 
     # compute prediction for BMS theorist
-    #predictions_bms_theorist = bms_theorist.predict(conditions_test)
+    predictions_bms_theorist = bms_theorist.predict(conditions_test)
 
     # evaluate theorist performance
     error_theorist = (predictions_theorist - observations_test).pow(2)
@@ -78,8 +81,8 @@ def benchmark(experiment_runner, theorist):
     error_dummy_theorist = error_dummy_theorist.mean()
 
     # evaluate BMS theorist performance
-    #error_bms_theorist = (predictions_bms_theorist - observations_test).pow(2)
-    #error_bms_theorist = error_bms_theorist.mean()
+    error_bms_theorist = (predictions_bms_theorist - observations_test).pow(2)
+    error_bms_theorist = error_bms_theorist.mean()
 
     print("#### IDENTIFIED EQUATION OF THE THEORIST:")
     print(theorist.print_eqn())
@@ -88,7 +91,7 @@ def benchmark(experiment_runner, theorist):
     print(dummy_theorist.print_eqn())
 
     print("#### IDENTIFIED EQUATION OF THE BMS THEORIST:")
-    #bms_theorist.present_results()
+    bms_theorist.present_results()
 
     print("#### ERROR - THEORIST:")
     print(error_theorist)
@@ -97,7 +100,7 @@ def benchmark(experiment_runner, theorist):
     print(error_dummy_theorist)
 
     print("#### ERROR - BMS THEORIST:")
-    #print(error_bms_theorist)
+    print(error_bms_theorist)
 
 
 
@@ -155,3 +158,4 @@ def run_benchmark(theorist):
 
 theorist = DummyTheorist()
 benchmark(stevens_power_law(), theorist)
+
