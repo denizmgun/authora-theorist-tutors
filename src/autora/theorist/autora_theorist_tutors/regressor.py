@@ -1,6 +1,10 @@
 import sympy as sp
 import random
 import numpy as np
+import pymc as pm
+import arviz as az
+import pytensor.tensor as pt
+
 
 class SymbolicRegressor:
     def __init__(self, variables, max_depth=3, population_size=1000, seed=None):
@@ -56,7 +60,7 @@ class SymbolicRegressor:
         
         if current_depth < self.max_depth:
             choice = random.choice(['+', '-', '*', '/', 'exp', 'log', 'const', 'var'])
-            print(f"Current depth: {current_depth}, Choice: {choice}")
+            #print(f"Current depth: {current_depth}, Choice: {choice}")
             if choice in ['+', '-', '*', '/']:
                 left = self.generate_random_expression(current_depth + 1)
                 right = self.generate_random_expression(current_depth + 1)
@@ -70,10 +74,8 @@ class SymbolicRegressor:
                 expr = random.choice(self.variables)
         else:
             expr = random.choice(self.variables + [random.uniform(-10, 10)])
-        print(f"Generated expression at depth {current_depth}: {expr}")
+        #print(f"Generated expression at depth {current_depth}: {expr}")
         return expr
-
-
 
     def prefix_to_sympy(self, expr):
         """
@@ -94,48 +96,48 @@ class SymbolicRegressor:
             True
         """
         if isinstance(expr, list):
-            print(f"Converting list: {expr}")
+            # print(f"Converting list: {expr}")
             if expr[0] == '+':
                 left = self.prefix_to_sympy(expr[1])
                 right = self.prefix_to_sympy(expr[2])
-                #print(f"Adding: {left} + {right}")
+                # print(f"Adding: {left} + {right}")
                 result = left + right
             elif expr[0] == '-':
                 left = self.prefix_to_sympy(expr[1])
                 right = self.prefix_to_sympy(expr[2])
-                #print(f"Subtracting: {left} - {right}")
+                # print(f"Subtracting: {left} - {right}")
                 result = left - right
             elif expr[0] == '*':
                 left = self.prefix_to_sympy(expr[1])
                 right = self.prefix_to_sympy(expr[2])
-                #print(f"Multiplying: {left} * {right}")
+                # print(f"Multiplying: {left} * {right}")
                 result = left * right
             elif expr[0] == '/':
                 left = self.prefix_to_sympy(expr[1])
                 right = self.prefix_to_sympy(expr[2])
-                #print(f"Dividing: {left} / {right}")
+                # print(f"Dividing: {left} / {right}")
                 result = left / right
             elif expr[0] == 'exp':
                 operand = self.prefix_to_sympy(expr[1])
-                #print(f"Exponential: exp({operand})")
+                # print(f"Exponential: exp({operand})")
                 result = sp.exp(operand)
             elif expr[0] == 'log':
                 operand = self.prefix_to_sympy(expr[1])
-                #print(f"Logarithm: log({operand})")
+                # print(f"Logarithm: log({operand})")
                 result = sp.log(operand)
             else:
                 raise ValueError(f"Unrecognized operator: {expr[0]}")
-            #print(f"Converted to SymPy: {result}")
+            # print(f"Converted to SymPy: {result}")
             return result
         elif isinstance(expr, str):
             result = self.symbolic_vars.get(expr, None)
-            #print(f"Converting variable: {expr} to {result}")
+            # print(f"Converting variable: {expr} to {result}")
             return result
         else:
             result = sp.sympify(expr)
-            print(f"Converting constant: {expr} to {result}")
+            # print(f"Converting constant: {expr} to {result}")
             return result
-        
+
     def get_depth(self, expr):
         """
         Get the depth of an expression.
@@ -163,8 +165,6 @@ class SymbolicRegressor:
             else:
                 return 1 + max(self.get_depth(expr[1]), self.get_depth(expr[2]))
 
-      
-
     def evaluate_expression(self, expr, data):
         """
         Evaluate a SymPy expression on given data.
@@ -174,74 +174,67 @@ class SymbolicRegressor:
         data (dict): Dictionary of variable values.
 
         Returns:
-        np.ndarray: Evaluated values.
-
-        Example:
-        >>> regressor = SymbolicRegressor(variables=['x1', 'x2'])
-        >>> expr = regressor.prefix_to_sympy(['+', 'x1', 2])
-        >>> data = {'x1': np.array([1, 2, 3]), 'x2': np.array([4, 5, 6])}
-        >>> result = regressor.evaluate_expression(expr, data)
-        >>> np.all(result == np.array([3, 4, 5]))
-        True
+        np.ndarray: Evaluated values or None if the evaluation leads to an error.
         """
-        f = sp.lambdify(self.variables, expr, 'numpy')
-        predictions = f(*[data[var] for var in self.variables])
-        return predictions
-
-    def fitness_function(self, expr, x, y):
-        """
-        Compute the fitness (mean squared error) of an expression.
-
-        Parameters:
-        expr (sympy.Basic): SymPy expression.
-        x (dict): Input data.
-        y (np.ndarray): True output values.
-
-        Returns:
-        float: Mean squared error.
-
-        Example:
-        >>> regressor = SymbolicRegressor(variables=['x1', 'x2'])
-        >>> expr = regressor.prefix_to_sympy(['+', 'x1', 2])
-        >>> x = {'x1': np.array([1, 2, 3]), 'x2': np.array([4, 5, 6])}
-        >>> y = np.array([3, 4, 5])
-        >>> mse = regressor.fitness_function(expr, x, y)
-        >>> isinstance(mse, float)
-        True
-        """
-        predictions = self.evaluate_expression(expr, x)
-        mse = ((predictions - y) ** 2).mean()
-        return mse
+        try:
+            f = sp.lambdify(self.variables, expr, 'numpy')
+            predictions = f(*[data[var] for var in self.variables])
+            # Check for invalid values like inf, -inf, nan
+            if np.any(np.isinf(predictions)) or np.any(np.isnan(predictions)):
+                return None
+            return predictions
+        except Exception as e:
+            return None
 
     def fit(self, x, y):
-        """
-        Fit the symbolic regressor to the data.
+        # Generate random expressions
+        expressions = [self.generate_random_expression() for _ in range(self.population_size)]
+        sympy_exprs = [self.prefix_to_sympy(expr) for expr in expressions]
 
-        Parameters:
-        x (dict): Input data.
-        y (np.ndarray): True output values.
+        # Ensure y is in float format
+        y = np.array(y, dtype=float)
 
-        Returns:
-        self.best_expr (sympy.Basic): Best found expression.
+        # Ensure x values are in float format
+        x = {k: np.array(v, dtype=float) for k, v in x.items()}
 
-        Example:
-        >>> regressor = SymbolicRegressor(variables=['x1', 'x2'], max_depth=3, population_size=10)
-        >>> x = {'x1': np.random.rand(100), 'x2': np.random.rand(100)}
-        >>> y = 3 * x['x1'] ** 2 + 2 * x['x2'] - 1
-        >>> regressor.fit(x, y)
-        >>> regressor.best_expr is not None
-        True
-        """
-        self.best_expr = None
-        self.best_fitness = float('inf')
+        # Evaluate the expressions and take only valid ones
+        valid_exprs = []
+        for expr in sympy_exprs:
+            try:
+                predictions = self.evaluate_expression(expr, x)
+                if predictions is not None and np.all(np.isfinite(predictions)):
+                    valid_exprs.append((expr, predictions))
+            except Exception as e:
+                continue
 
-        for _ in range(self.population_size):
-            expr = self.generate_random_expression()
-            sympy_expr = self.prefix_to_sympy(expr)
-            fitness = self.fitness_function(sympy_expr, x, y)
-            if fitness < self.best_fitness:
-                self.best_fitness = fitness
-                self.best_expr = sympy_expr
+        if not valid_exprs:
+            raise ValueError("No valid expressions generated. Try increasing the population size or max_depth.")
+
+        print(len(valid_exprs))
+
+        with pm.Model() as model:
+            # Define coefficients as beta distributions between 0 and 1
+            coefficients = [pm.Beta(f'coeff_{i}', alpha=2, beta=2) for i in range(len(valid_exprs))]
+
+            # Linearly combine expressions with coefficients
+            predictions = pt.zeros_like(y, dtype=float)
+            for coeff, (_, pred) in zip(coefficients, valid_exprs):
+                predictions += coeff * pred
+
+            # Define the likelihood
+            sigma = pm.HalfNormal('sigma', sigma=1)
+            y_obs = pm.Normal('y_obs', mu=predictions, sigma=sigma, observed=y)
+
+            # Perform MCMC sampling
+            trace = pm.sample(1000, return_inferencedata=True)
+
+        # Get the mean of coefficients from posterior distribution
+        mean_coefficients = {f'coeff_{i}': trace.posterior[f'coeff_{i}'].mean().item() for i in range(len(valid_exprs))}
+
+        # Find the expression with the highest coefficient
+        best_expr_index = max(mean_coefficients, key=lambda k: abs(mean_coefficients[k]))
+        self.best_expr = valid_exprs[int(best_expr_index.split('_')[1])][0]
+
         return self.best_expr
 
     def predict(self, x):
