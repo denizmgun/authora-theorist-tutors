@@ -16,6 +16,7 @@ dependencies = [
     "autora",
     "sympy",
     "autora[theorist-bms]",
+    "pymc",
 ]
 
 [project.optional-dependencies]

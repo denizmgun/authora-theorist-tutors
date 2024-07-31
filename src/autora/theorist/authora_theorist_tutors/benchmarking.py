@@ -18,16 +18,16 @@ from autora.experimentalist.random import random_pool, random_sample
 import autora.theorist.bms
 from autora.theorist.bms.regressor import BMSRegressor
 
-
 # data handling
 from sklearn.model_selection import train_test_split
 
+from autora.theorist.autora_theorist_tutors import SymbolicRegressor
+
 
 def benchmark(experiment_runner, theorist):
-
     # Give the dummy and bms theorists
     dummy_theorist = DummyTheorist()
-    #bms_theorist = BMSRegressor() #autora.theorist.bms()
+    # bms_theorist = BMSRegressor() #autora.theorist.bms()
 
     # generate all conditions
     conditions = experiment_runner.domain()
@@ -44,7 +44,8 @@ def benchmark(experiment_runner, theorist):
     observations = experiment_data[dvs]
 
     # split into train and test datasets
-    conditions_train, conditions_test, observations_train, observations_test = train_test_split(conditions, observations)
+    conditions_train, conditions_test, observations_train, observations_test = train_test_split(conditions,
+                                                                                                observations)
 
     print("#### EXPERIMENT CONDITIONS (X):")
     print(conditions)
@@ -64,10 +65,10 @@ def benchmark(experiment_runner, theorist):
     predictions_dummy_theorist = dummy_theorist.predict(conditions_test)
 
     # fit BMS theorist
-    #bms_theorist.fit(conditions_train, observations_train)
+    # bms_theorist.fit(conditions_train, observations_train)
 
     # compute prediction for BMS theorist
-    #predictions_bms_theorist = bms_theorist.predict(conditions_test)
+    # predictions_bms_theorist = bms_theorist.predict(conditions_test)
 
     # evaluate theorist performance
     error_theorist = (predictions_theorist - observations_test).pow(2)
@@ -78,8 +79,8 @@ def benchmark(experiment_runner, theorist):
     error_dummy_theorist = error_dummy_theorist.mean()
 
     # evaluate BMS theorist performance
-    #error_bms_theorist = (predictions_bms_theorist - observations_test).pow(2)
-    #error_bms_theorist = error_bms_theorist.mean()
+    # error_bms_theorist = (predictions_bms_theorist - observations_test).pow(2)
+    # error_bms_theorist = error_bms_theorist.mean()
 
     print("#### IDENTIFIED EQUATION OF THE THEORIST:")
     print(theorist.print_eqn())
@@ -88,7 +89,7 @@ def benchmark(experiment_runner, theorist):
     print(dummy_theorist.print_eqn())
 
     print("#### IDENTIFIED EQUATION OF THE BMS THEORIST:")
-    #bms_theorist.present_results()
+    # bms_theorist.present_results()
 
     print("#### ERROR - THEORIST:")
     print(error_theorist)
@@ -97,10 +98,7 @@ def benchmark(experiment_runner, theorist):
     print(error_dummy_theorist)
 
     print("#### ERROR - BMS THEORIST:")
-    #print(error_bms_theorist)
-
-
-
+    # print(error_bms_theorist)
 
 
 class DummyTheorist:
@@ -109,17 +107,17 @@ class DummyTheorist:
     """
 
     def __init__(self, degree: int = 3):
-      self.poly = PolynomialFeatures(degree=degree, include_bias=False)
-      self.model = LinearRegression()
+        self.poly = PolynomialFeatures(degree=degree, include_bias=False)
+        self.model = LinearRegression()
 
     def fit(self, x, y):
-      features = self.poly.fit_transform(x, y)
-      self.model.fit(features, y)
-      return self
+        features = self.poly.fit_transform(x, y)
+        self.model.fit(features, y)
+        return self
 
     def predict(self, x):
-      features = self.poly.fit_transform(x)
-      return self.model.predict(features)
+        features = self.poly.fit_transform(x)
+        return self.model.predict(features)
 
     def print_eqn(self):
         # Extract the coefficients and intercept
@@ -129,7 +127,7 @@ class DummyTheorist:
         # Handle multi-output case by iterating over each output's coefficients and intercept
         if coeffs.ndim > 1:
             for idx in range(coeffs.shape[0]):
-                equation = f"y{idx+1} = {intercept[idx]:.3f}"
+                equation = f"y{idx + 1} = {intercept[idx]:.3f}"
                 feature_names = self.poly.get_feature_names_out()
                 for coef, feature in zip(coeffs[idx], feature_names):
                     equation += f" + ({coef:.3f}) * {feature}"
@@ -141,17 +139,15 @@ class DummyTheorist:
                 equation += f" + ({coef:.3f}) * {feature}"
             print(equation)
 
-#dummy_theorist = DummyTheorist()
+
+# dummy_theorist = DummyTheorist()
 
 def run_benchmark(theorist):
-   
-   experiment_runners = [stevens_power_law(), weber_fechner_law(), expected_value_theory()]
+    experiment_runners = [stevens_power_law(), weber_fechner_law(), expected_value_theory()]
 
-   for runner in experiment_runners:
-      
-      benchmark(runner, theorist)
-   
+    for runner in experiment_runners:
+        benchmark(runner, theorist)
 
 
-theorist = DummyTheorist()
+theorist = SymbolicRegressor(variables=['S'])
 benchmark(stevens_power_law(), theorist)
