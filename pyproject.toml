@@ -15,7 +15,7 @@ dependencies = [
     "scikit-learn",
     "autora",
     "sympy",
-    autora[theorist-bms],
+    "autora[theorist-bms]",
 ]
 
 [project.optional-dependencies]
