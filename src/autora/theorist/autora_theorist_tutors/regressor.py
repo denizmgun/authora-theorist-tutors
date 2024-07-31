@@ -1,6 +1,7 @@
 import sympy as sp
 import random
 
+
 class SymbolicRegressor:
     def __init__(self, variables, max_depth=3, population_size=1000):
         """
