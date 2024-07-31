@@ -2,14 +2,13 @@ import sympy as sp
 import random
 import numpy as np
 
-
-
 class SymbolicRegressor:
     def __init__(self, variables, max_depth=3, population_size=1000, seed=None):
         self.variables = variables
         self.max_depth = max_depth
         self.population_size = population_size
         self.seed = seed
+        self.symbolic_vars = {var: sp.symbols(var) for var in self.variables}
         if seed is not None:
             random.seed(seed)
             np.random.seed(seed)
@@ -23,7 +22,7 @@ class SymbolicRegressor:
 
         Returns:
         list: Random expression in prefix notation.
-
+        
         Example:
         >>> variables = ['x1', 'x2']
         >>> regressor = SymbolicRegressor(variables=variables, max_depth=3, seed=42)
@@ -54,7 +53,7 @@ class SymbolicRegressor:
         >>> len(random_expr) > 0
         True
         """
-
+        
         if current_depth < self.max_depth:
             choice = random.choice(['+', '-', '*', '/', 'exp', 'log', 'const', 'var'])
             print(f"Current depth: {current_depth}, Choice: {choice}")
@@ -74,6 +73,69 @@ class SymbolicRegressor:
         print(f"Generated expression at depth {current_depth}: {expr}")
         return expr
 
+
+
+    def prefix_to_sympy(self, expr):
+        """
+        Convert a prefix notation expression to a SymPy expression.
+
+        Parameters:
+        expr (list or float): Expression in prefix notation or constant value.
+
+        Returns:
+        sympy.Basic: SymPy expression.
+
+        Example:
+            >>> regressor = SymbolicRegressor(variables=['x1', 'x2'])
+            >>> expr = ['-', ['+', ['exp', 'x1'], ['-', 3.533989748458225, 'x2']], ['+', ['+', 'x1', 'x1'], ['/', 4.32039225844807, 'x1']]]
+            >>> sympy_expr = regressor.prefix_to_sympy(expr)
+            >>> expected_expr = sp.exp(sp.symbols('x1')) + 3.53398974845823 - sp.symbols('x2') - 2*sp.symbols('x1') - 4.32039225844807/sp.symbols('x1')
+            >>> sympy_expr.equals(expected_expr)
+            True
+        """
+        if isinstance(expr, list):
+            print(f"Converting list: {expr}")
+            if expr[0] == '+':
+                left = self.prefix_to_sympy(expr[1])
+                right = self.prefix_to_sympy(expr[2])
+                #print(f"Adding: {left} + {right}")
+                result = left + right
+            elif expr[0] == '-':
+                left = self.prefix_to_sympy(expr[1])
+                right = self.prefix_to_sympy(expr[2])
+                #print(f"Subtracting: {left} - {right}")
+                result = left - right
+            elif expr[0] == '*':
+                left = self.prefix_to_sympy(expr[1])
+                right = self.prefix_to_sympy(expr[2])
+                #print(f"Multiplying: {left} * {right}")
+                result = left * right
+            elif expr[0] == '/':
+                left = self.prefix_to_sympy(expr[1])
+                right = self.prefix_to_sympy(expr[2])
+                #print(f"Dividing: {left} / {right}")
+                result = left / right
+            elif expr[0] == 'exp':
+                operand = self.prefix_to_sympy(expr[1])
+                #print(f"Exponential: exp({operand})")
+                result = sp.exp(operand)
+            elif expr[0] == 'log':
+                operand = self.prefix_to_sympy(expr[1])
+                #print(f"Logarithm: log({operand})")
+                result = sp.log(operand)
+            else:
+                raise ValueError(f"Unrecognized operator: {expr[0]}")
+            #print(f"Converted to SymPy: {result}")
+            return result
+        elif isinstance(expr, str):
+            result = self.symbolic_vars.get(expr, None)
+            #print(f"Converting variable: {expr} to {result}")
+            return result
+        else:
+            result = sp.sympify(expr)
+            print(f"Converting constant: {expr} to {result}")
+            return result
+        
     def get_depth(self, expr):
         """
         Get the depth of an expression.
@@ -101,38 +163,7 @@ class SymbolicRegressor:
             else:
                 return 1 + max(self.get_depth(expr[1]), self.get_depth(expr[2]))
 
-
-    def prefix_to_sympy(self, expr):
-        """
-        Convert a prefix notation expression to a SymPy expression.
-
-        Parameters:
-        expr (list or float): Expression in prefix notation or constant value.
-
-        Returns:
-        sympy.Basic: SymPy expression.
-
-        Example:
-        >>> regressor = SymbolicRegressor(variables=['x1', 'x2'])
-        >>> sympy_expr = regressor.prefix_to_sympy(['+', 'x1', 2])
-        >>> isinstance(sympy_expr, sp.Basic)
-        True
-        """
-        if isinstance(expr, list):
-            if expr[0] == '+':
-                return self.prefix_to_sympy(expr[1]) + self.prefix_to_sympy(expr[2])
-            elif expr[0] == '-':
-                return self.prefix_to_sympy(expr[1]) - self.prefix_to_sympy(expr[2])
-            elif expr[0] == '*':
-                return self.prefix_to_sympy(expr[1]) * self.prefix_to_sympy(expr[2])
-            elif expr[0] == '/':
-                return self.prefix_to_sympy(expr[1]) / self.prefix_to_sympy(expr[2])
-            elif expr[0] == 'exp':
-                return sp.exp(self.prefix_to_sympy(expr[1]))
-            elif expr[0] == 'log':
-                return sp.log(self.prefix_to_sympy(expr[1]))
-        else:
-            return sp.sympify(expr)
+      
 
     def evaluate_expression(self, expr, data):
         """
