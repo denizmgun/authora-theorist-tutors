@@ -1,25 +1,18 @@
 import sympy as sp
 import random
+import numpy as np
+
 
 
 class SymbolicRegressor:
-    def __init__(self, variables, max_depth=3, population_size=1000):
-        """
-        Initialize the Symbolic Regressor.
-
-        Parameters:
-        variables (list): List of variable names.
-        max_depth (int): Maximum depth for generated expressions.
-        population_size (int): Number of expressions to sample.
-
-        Example:
-        >>> regressor = SymbolicRegressor(variables=['x1', 'x2'], max_depth=3, population_size=10)
-        >>> isinstance(regressor, SymbolicRegressor)
-        True
-        """
+    def __init__(self, variables, max_depth=3, population_size=1000, seed=None):
         self.variables = variables
         self.max_depth = max_depth
         self.population_size = population_size
+        self.seed = seed
+        if seed is not None:
+            random.seed(seed)
+            np.random.seed(seed)
 
     def generate_random_expression(self, current_depth=0):
         """
@@ -32,25 +25,82 @@ class SymbolicRegressor:
         list: Random expression in prefix notation.
 
         Example:
-        >>> regressor = SymbolicRegressor(variables=['x1', 'x2'], max_depth=3)
-        >>> expr = regressor.generate_random_expression()
-        >>> isinstance(expr, list)
+        >>> variables = ['x1', 'x2']
+        >>> regressor = SymbolicRegressor(variables=variables, max_depth=3, seed=42)
+        >>> random_expr = regressor.generate_random_expression()
+        Current depth: 0, Choice: -
+        Current depth: 1, Choice: +
+        Current depth: 2, Choice: exp
+        Generated expression at depth 3: x1
+        Generated expression at depth 2: ['exp', 'x1']
+        Current depth: 2, Choice: -
+        Generated expression at depth 3: 3.533989748458225
+        Generated expression at depth 3: x2
+        Generated expression at depth 2: ['-', 3.533989748458225, 'x2']
+        Generated expression at depth 1: ['+', ['exp', 'x1'], ['-', 3.533989748458225, 'x2']]
+        Current depth: 1, Choice: +
+        Current depth: 2, Choice: +
+        Generated expression at depth 3: x1
+        Generated expression at depth 3: x1
+        Generated expression at depth 2: ['+', 'x1', 'x1']
+        Current depth: 2, Choice: /
+        Generated expression at depth 3: 4.32039225844807
+        Generated expression at depth 3: x1
+        Generated expression at depth 2: ['/', 4.32039225844807, 'x1']
+        Generated expression at depth 1: ['+', ['+', 'x1', 'x1'], ['/', 4.32039225844807, 'x1']]
+        Generated expression at depth 0: ['-', ['+', ['exp', 'x1'], ['-', 3.533989748458225, 'x2']], ['+', ['+', 'x1', 'x1'], ['/', 4.32039225844807, 'x1']]]
+        >>> isinstance(random_expr, list)
+        True
+        >>> len(random_expr) > 0
         True
         """
+
         if current_depth < self.max_depth:
             choice = random.choice(['+', '-', '*', '/', 'exp', 'log', 'const', 'var'])
+            print(f"Current depth: {current_depth}, Choice: {choice}")
             if choice in ['+', '-', '*', '/']:
-                return [choice,
-                        self.generate_random_expression(current_depth + 1),
-                        self.generate_random_expression(current_depth + 1)]
+                left = self.generate_random_expression(current_depth + 1)
+                right = self.generate_random_expression(current_depth + 1)
+                expr = [choice, left, right]
             elif choice in ['exp', 'log']:
-                return [choice, self.generate_random_expression(current_depth + 1)]
+                operand = self.generate_random_expression(current_depth + 1)
+                expr = [choice, operand]
             elif choice == 'const':
-                return random.uniform(-10, 10)
+                expr = random.uniform(-10, 10)
             else:  # 'var'
-                return random.choice(self.variables)
+                expr = random.choice(self.variables)
         else:
-            return random.choice(self.variables + [random.uniform(-10, 10)])
+            expr = random.choice(self.variables + [random.uniform(-10, 10)])
+        print(f"Generated expression at depth {current_depth}: {expr}")
+        return expr
+
+    def get_depth(self, expr):
+        """
+        Get the depth of an expression.
+
+        Parameters:
+        expr (str): expression in prefix notation
+
+        Returns:
+        int: Depth of the expression.
+
+        Example:
+        >>> regressor = SymbolicRegressor(variables=['x1', 'x2'])
+        >>> prefix_expr = ['+', 'x1', 2]
+        >>> depth = regressor.get_depth(expr)
+        >>> depth
+        1
+        """
+        if expr is None or not isinstance(expr, list):
+            return 0
+        if isinstance(expr, list):
+            if len(expr) in [0, 1]:
+                return 0
+            if len(expr) == 2:
+                return 1 + self.get_depth(expr[1])
+            else:
+                return 1 + max(self.get_depth(expr[1]), self.get_depth(expr[2]))
+
 
     def prefix_to_sympy(self, expr):
         """
@@ -83,14 +133,6 @@ class SymbolicRegressor:
                 return sp.log(self.prefix_to_sympy(expr[1]))
         else:
             return sp.sympify(expr)
-
-    def get_depth(self, expr):
-        """
-        Calculate the depth of a SymPy expression.
-        """
-        if not expr.args:
-            return 0
-        return 1 + max(self.get_depth(arg) for arg in expr.args)
 
     def evaluate_expression(self, expr, data):
         """
