@@ -73,8 +73,7 @@ class SymbolicRegressor:
         return expr
 
 
-
-    def prefix_to_sympy(self, expr):
+    def prefix_to_sympy(self, expr, variables=["x1"]):
         """
         Convert a prefix notation expression to a SymPy expression.
 
@@ -92,48 +91,34 @@ class SymbolicRegressor:
             >>> sympy_expr.equals(expected_expr)
             True
         """
-        if isinstance(expr, list):
-            print(f"Converting list: {expr}")
-            if expr[0] == '+':
-                left = self.prefix_to_sympy(expr[1])
-                right = self.prefix_to_sympy(expr[2])
-                #print(f"Adding: {left} + {right}")
-                result = left + right
-            elif expr[0] == '-':
-                left = self.prefix_to_sympy(expr[1])
-                right = self.prefix_to_sympy(expr[2])
-                #print(f"Subtracting: {left} - {right}")
-                result = left - right
-            elif expr[0] == '*':
-                left = self.prefix_to_sympy(expr[1])
-                right = self.prefix_to_sympy(expr[2])
-                #print(f"Multiplying: {left} * {right}")
-                result = left * right
-            elif expr[0] == '/':
-                left = self.prefix_to_sympy(expr[1])
-                right = self.prefix_to_sympy(expr[2])
-                #print(f"Dividing: {left} / {right}")
-                result = left / right
-            elif expr[0] == 'exp':
-                operand = self.prefix_to_sympy(expr[1])
-                #print(f"Exponential: exp({operand})")
-                result = sp.exp(operand)
-            elif expr[0] == 'log':
-                operand = self.prefix_to_sympy(expr[1])
-                #print(f"Logarithm: log({operand})")
-                result = sp.log(operand)
+        symbolic_vars = {var: sp.symbols(var) for var in variables}
+
+        def convert(expr):
+            if isinstance(expr, list):
+                operator = expr[0]
+                if operator == '+':
+                    return convert(expr[1])+convert(expr[2])
+                elif operator == '-':
+                    return convert(expr[1])-convert(expr[2])
+                elif operator == '*':
+                    return convert(expr[1]) * convert(expr[2])
+                elif operator == '/':
+                    return convert(expr[1]) / convert(expr[2])
+                elif operator == 'exp':
+                    return sp.exp(convert(expr[1]))
+                elif operator == 'log':
+                    return sp.log(convert(expr[1]))
+                else:
+                    raise ValueError(f"Unrecognized operator: {operator}")
+            elif isinstance(expr, str):
+                if expr in symbolic_vars:
+                    return symbolic_vars[expr]
+                else:
+                    raise ValueError(f"Unrecognized variable: {expr}")
             else:
-                raise ValueError(f"Unrecognized operator: {expr[0]}")
-            #print(f"Converted to SymPy: {result}")
-            return result
-        elif isinstance(expr, str):
-            result = self.symbolic_vars.get(expr, None)
-            #print(f"Converting variable: {expr} to {result}")
-            return result
-        else:
-            result = sp.sympify(expr)
-            print(f"Converting constant: {expr} to {result}")
-            return result
+                return sp.sympify(expr)
+
+        return convert(expr)
         
     def get_depth(self, expr):
         """
