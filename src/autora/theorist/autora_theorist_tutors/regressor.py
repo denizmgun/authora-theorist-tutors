@@ -3,8 +3,7 @@ import random
 import numpy as np
 
 class SymbolicRegressor:
-    def __init__(self, variables, max_depth=3, population_size=1000, seed=None):
-        self.variables = variables
+    def __init__(self, max_depth=3, population_size=1000, seed=None):
         self.max_depth = max_depth
         self.population_size = population_size
         self.seed = seed
